@@ -5,9 +5,10 @@ use rhdl_vlog::Pretty;
 use crate::{
     Digital, DigitalFn, RHDLError, TypedBits,
     compiler::{
-        driver::{compile_design_stage1, compile_design_stage2},
+        driver::{compile_design_stage1, compile_design_stage2, compile_kernel_stage1},
         optimize_ntl,
     },
+    kernel::KernelFnKind,
     ntl::from_rtl::build_ntl_from_rtl,
     sim::test_module::TestModule,
     types::bit_string::BitString,
@@ -349,7 +350,22 @@ where
     Args: TestArg,
 {
     let design = compile_design_stage1::<K>(mode)?;
-    let rtl = compile_design_stage2(&design)?;
+    test_compiled_kernel_against(&design, uut, vals)
+}
+
+/// Run the differential pipeline (RHIF VM, RTL VM, Verilog sim, netlist sim)
+/// against an already-compiled kernel.
+fn test_compiled_kernel_against<F, Args, T0>(
+    design: &crate::rhif::Object,
+    uut: F,
+    vals: impl Iterator<Item = Args> + Clone,
+) -> Result<(), RHDLError>
+where
+    F: Testable<Args, T0>,
+    T0: Digital,
+    Args: TestArg,
+{
+    let rtl = compile_design_stage2(design)?;
     let vm_inputs = vals.clone();
     debug!("Testing kernel function");
     debug!("----- RHIF -----");
@@ -360,7 +376,7 @@ where
     for input in vm_inputs {
         let args_for_vm = input.vec_tb();
         let expected = uut.apply(input).typed_bits();
-        let actual = crate::rhif::vm::execute(&design, args_for_vm)?;
+        let actual = crate::rhif::vm::execute(design, args_for_vm)?;
         if expected.bits() != actual.bits() {
             return Err(RHDLError::VerilogVerificationErrorTyped { expected, actual });
         }
@@ -434,4 +450,22 @@ where
         vals,
         crate::CompilationMode::Synchronous,
     )
+}
+
+/// Like `test_kernel_vm_and_verilog`, but takes a runtime-constructed kernel
+/// (a `KernelFnKind::AstKernel`) instead of a `DigitalFn` type parameter.
+/// Used by generators that build kernels programmatically.
+pub fn test_kernel_vm_and_verilog_ast<F, Args, T0>(
+    kernel: KernelFnKind,
+    uut: F,
+    vals: impl Iterator<Item = Args> + Clone,
+    mode: crate::CompilationMode,
+) -> Result<(), RHDLError>
+where
+    F: Testable<Args, T0>,
+    T0: Digital,
+    Args: TestArg,
+{
+    let design = compile_kernel_stage1(kernel, mode)?;
+    test_compiled_kernel_against(&design, uut, vals)
 }

@@ -25,7 +25,14 @@ struct TranslationContext<'a> {
 
 impl From<&TypedBits> for vlog::LitVerilog {
     fn from(tb: &TypedBits) -> Self {
-        let bits = "b"
+        // Signed kinds must carry the `s` flag through to the Verilog
+        // literal (`N'sbXX`), otherwise Verilog's "if any operand is
+        // unsigned, the comparison is unsigned" rule silently flips the
+        // result of comparisons (and the sign-extension behavior of
+        // arithmetic shifts) when this literal is used alongside a
+        // signed value.
+        let prefix = if tb.kind().is_signed() { "sb" } else { "b" };
+        let bits = prefix
             .chars()
             .chain(tb.iter().rev().map(|b| match b {
                 BitX::Zero => '0',

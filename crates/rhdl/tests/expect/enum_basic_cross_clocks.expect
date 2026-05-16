@@ -6,7 +6,7 @@
      ·                 ─────────────────┬────────────────┬┬┬
      ·                                  │                ││╰── Clock domain mismatch in select operation
      ·                                  │                │╰── Expression belongs to Red clock domain
-     ·                                  │                ╰── Expression belongs to Multiple clock domain
+     ·                                  │                ╰── Expression belongs to Unknown clock domain
      ·                                  ╰── Expression belongs to Blue clock domain
  450 │         signal(c)
      ╰────

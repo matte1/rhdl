@@ -44,7 +44,12 @@ fn collect_clock_domains(ty: TypeId) -> Vec<TypeId> {
             .into_iter()
             .flat_map(collect_clock_domains)
             .collect(),
-        TypeKind::Const(Const::Color(_)) => vec![ty],
+        // Const::Uncolored is the type of a literal (it has no inherent
+        // clock domain). Include it so callers like `unify_projected_clocks`
+        // can unify a literal-typed slot with the other side's free
+        // domain vars, instead of silently no-op-ing the unification and
+        // leaving the other side's vars unresolved.
+        TypeKind::Const(Const::Color(_)) | TypeKind::Const(Const::Uncolored) => vec![ty],
         _ => vec![],
     }
 }

@@ -6,7 +6,7 @@
      ·         ────┬────┬┬
      ·             │    │╰── Clock domain mismatch in retime operation
      ·             │    ╰── Expression belongs to Red clock domain
-     ·             ╰── Expression belongs to Green clock domain
+     ·             ╰── Expression belongs to Multiple clock domain
  117 │     }
      ╰────
   help: You cannot retime signals from different clock domains.  You may need a clock domain crosser in your design.

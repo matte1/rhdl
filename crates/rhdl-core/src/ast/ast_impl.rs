@@ -7,13 +7,19 @@ use rhdl_span::MetaDB;
 
 // Modeled after rustc's AST
 
+/// A stable identifier for an AST node. Allocated at AST-construction time
+/// (in the `#[kernel]` proc macro, or by callers using the public AST
+/// builder API) and used throughout the compiler to map nodes to source
+/// spans, types, and diagnostics.
 #[derive(Clone, Copy, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub struct NodeId(u32);
 
 impl NodeId {
+    /// Construct a `NodeId` from a raw u32.
     pub const fn new(id: u32) -> Self {
         NodeId(id)
     }
+    /// The underlying u32 of this `NodeId`.
     pub fn as_u32(self) -> u32 {
         self.0
     }

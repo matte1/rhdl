@@ -17,6 +17,11 @@ Cargo.lock
 **/*.vcd
 **/*.v
 
+# proptest auto-persists failing seeds here. Don't commit incidentally;
+# if a particular case is worth pinning as a regression, lift it into
+# a hand-written test instead.
+**/*.proptest-regressions
+
 # Added by cargo
 
 /target

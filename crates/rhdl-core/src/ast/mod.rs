@@ -9,7 +9,12 @@
 pub(crate) mod ast_impl;
 pub mod builder;
 pub(crate) mod visit;
+pub use ast_impl::Block;
+pub use ast_impl::Expr;
 pub use ast_impl::KernelFlags;
+pub use ast_impl::NodeId;
+pub use ast_impl::Pat;
+pub use ast_impl::Stmt;
 pub(crate) mod spanned_source;
 pub(crate) use ast_impl::SourceLocation;
 pub(crate) use spanned_source::SourcePool;

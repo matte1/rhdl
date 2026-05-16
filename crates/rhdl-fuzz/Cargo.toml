@@ -1,0 +1,10 @@
+[package]
+name = "rhdl-fuzz"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+proptest = "1.5"
+rhdl = { path = "../rhdl" }
+rhdl-core = { path = "../rhdl-core" }

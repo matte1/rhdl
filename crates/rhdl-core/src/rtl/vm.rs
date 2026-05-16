@@ -1,5 +1,5 @@
 use crate::{
-    RHDLError, TypedBits,
+    Kind, RHDLError, TypedBits,
     ast::ast_impl::SourceLocation,
     bitx::BitX,
     common::slot_vec::SlotKey,
@@ -144,11 +144,33 @@ fn execute_block(ops: &[LocatedOpCode], state: &mut VMState) -> Result<()> {
                 len,
                 kind,
             }) => {
-                let arg = state.read(*arg, loc)?;
+                let arg_value = state.read(*arg, loc)?;
                 let result = match kind {
-                    CastKind::Signed => arg.signed_cast(*len),
-                    CastKind::Unsigned => arg.unsigned_cast(*len),
-                    CastKind::Resize => arg.resize(*len),
+                    CastKind::Signed => arg_value.signed_cast(*len),
+                    CastKind::Unsigned => arg_value.unsigned_cast(*len),
+                    // Resize is the truncating/extending width change.
+                    // Whether to sign-extend or zero-pad must be driven
+                    // by the source register's *declared* Kind, not by
+                    // the BitString variant. The BitString variant can
+                    // be Unsigned even when the source is semantically
+                    // signed -- this happens when the source register's
+                    // Kind is a single-field struct/tuple wrapping a
+                    // signed scalar, because `Kind::is_signed()` returns
+                    // false for those wrapper kinds at the harness
+                    // TypedBits -> BitString boundary. Mirror what
+                    // `translate_resize` in the Verilog backend does.
+                    CastKind::Resize => {
+                        let source_kind_signed = state.obj.kind(*arg).is_signed();
+                        let bits_vec = arg_value.bits().to_vec();
+                        let tb_kind = if source_kind_signed {
+                            Kind::make_signed(bits_vec.len())
+                        } else {
+                            Kind::make_bits(bits_vec.len())
+                        };
+                        TypedBits::new(bits_vec, tb_kind)
+                            .resize(*len)
+                            .map(BitString::from)
+                    }
                 }?;
                 state.write(*lhs, result, loc)?;
             }
@@ -248,10 +270,24 @@ pub fn execute(obj: &Object, arguments: Vec<BitString>) -> Result<BitString> {
     // Allocate registers for the function call.
     let max_reg = obj.symtab.reg_vec().len();
     let mut reg_stack = vec![None; max_reg];
-    // Copy the arguments into the appropriate registers
+    // Copy the arguments into the appropriate registers, coercing the
+    // BitString tag (signed/unsigned) to match the register's declared
+    // kind. The caller's TypedBits -> BitString conversion picks the
+    // variant from `Kind::is_signed()`, which returns false for
+    // wrapper kinds (single-field struct/tuple over a signed scalar).
+    // Without this coercion, the argument register holds an Unsigned
+    // BitString even though its declared kind is Signed; downstream
+    // ops (Cast/Resize, Binary) then misinterpret it. This mirrors
+    // the coercion `state.write` does on every internally-computed
+    // value.
     for (ndx, arg) in arguments.into_iter().enumerate() {
         if let Some(r) = obj.arguments[ndx] {
-            reg_stack[r.index()] = Some(arg);
+            let coerced = if obj.symtab[r].is_signed() {
+                BitString::Signed(arg.bits().to_vec())
+            } else {
+                BitString::Unsigned(arg.bits().to_vec())
+            };
+            reg_stack[r.index()] = Some(coerced);
         }
     }
     let mut state = VMState {

@@ -1,0 +1,12 @@
+[package]
+name = "rhdl-fixed"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Fixed-point (Q-format) numeric types for RHDL"
+repository = "https://github.com/samitbasu/rhdl"
+
+[dependencies]
+rhdl = { path = "../rhdl" }
+rhdl-bits = { path = "../rhdl-bits" }
+rhdl-core = { path = "../rhdl-core" }

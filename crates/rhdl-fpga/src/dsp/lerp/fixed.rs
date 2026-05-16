@@ -4,10 +4,10 @@
 //! between two values.  These functions provide that
 //! computation, with a variable number of bits in the
 //! two input arguments and a variable number of bits in
-//! the interpolation factor.  
+//! the interpolation factor.
 //!
 //!# Internal Details
-//! There are various subtleties at play here.  
+//! There are various subtleties at play here.
 //! Given A: Bits<N>, B: Bits<N> and a factor: Bits<M>,
 //!
 //! we want to compute
@@ -23,7 +23,7 @@
 //! `delta` can take is `2^(M-1)/2^M`.  Normally, when
 //! linear interpolation is used, this limitation is not a problem.
 //! However, you should be aware, in case you need the function
-//! to be able to handle the case of `delta = 1`.  
+//! to be able to handle the case of `delta = 1`.
 //!
 //!
 //! Substituting delta, we get
@@ -71,65 +71,67 @@
 #![doc = include_str!("../../../doc/lerp.md")]
 //!
 use rhdl::prelude::*;
+use rhdl_fixed::{Fixed, SignedFixed};
 
 #[kernel]
-/// Linearly interpolate between unsigned values
+/// Linearly interpolate between unsigned values.
 ///
-/// Interpolates between values `lower_value` and `upper_value` with a factor
-/// of `factor/2^M` where `M` is the number of bits in `factor`.  Note that
-/// `factor/2^M < 1`, so the output cannot equal `upper_value`.  This core is
-/// just a function since it has no state.  It _does_ require a multiplier.
+/// Interpolates between `lower_value` and `upper_value` with a factor
+/// of `factor/2^M` where `M` is the number of bits in `factor`. Note
+/// that `factor/2^M < 1`, so the output cannot equal `upper_value`.
+/// This core is just a function since it has no state. It _does_
+/// require a multiplier.
 pub fn lerp_unsigned<const N: usize, const M: usize>(
-    lower_value: Bits<N>,
-    upper_value: Bits<N>,
-    factor: Bits<M>,
-) -> Bits<N>
+    lower_value: Fixed<N, 0>,
+    upper_value: Fixed<N, 0>,
+    factor: Fixed<M, M>,
+) -> Fixed<N, 0>
 where
     rhdl::bits::W<N>: BitWidth,
     rhdl::bits::W<M>: BitWidth,
 {
-    // Convert them to DynBits so we can manipulate them
-    let lower_value = lower_value.dyn_bits(); // Size N
-    let upper_value = upper_value.dyn_bits(); // Size N
-    let factor = factor.dyn_bits(); // Size M
-    let signed_factor = factor.xsgn(); // Size M + 1
-    let diff = upper_value.xsub(lower_value); // Size N + 1
-    let correction = signed_factor.xmul(diff); // Size N + M + 2
-    let lower_value = lower_value.xshl::<M>(); // Size N + M
-    let lower_value = lower_value.xsgn(); // Size N + M + 1
-    let y = lower_value.xadd(correction); // Size N + M + 3
-    let y = y.xshr::<M>(); // Size N + 3
-    let y = y.as_unsigned().resize::<N>(); // Size N
-    y.as_bits()
+    let lower_value = lower_value.raw.dyn_bits();
+    let upper_value = upper_value.raw.dyn_bits();
+    let factor = factor.raw.dyn_bits();
+    let signed_factor = factor.xsgn();
+    let diff = upper_value.xsub(lower_value);
+    let correction = signed_factor.xmul(diff);
+    let lower_value = lower_value.xshl::<M>();
+    let lower_value = lower_value.xsgn();
+    let y = lower_value.xadd(correction);
+    let y = y.xshr::<M>();
+    let y = y.as_unsigned().resize::<N>();
+    Fixed::<N, 0> { raw: y.as_bits() }
 }
 
 #[kernel]
-/// Linearly interpolate between signed values
+/// Linearly interpolate between signed values.
 ///
 /// Interpolates between `lower_value` and `upper_value` with a factor
-/// of `factor/2^M` where `M` is the number of bits in `factor`.  Note that
-/// `factor/2^M < 1`, so the output cannot equal `upper_value`.  This core is
-/// just a function since it has no state.  It _does_ require a multiplier.
+/// of `factor/2^M` where `M` is the number of bits in `factor`. The
+/// factor is an unsigned fraction in `[0, 1)`.
 pub fn lerp_signed<const N: usize, const M: usize>(
-    lower_value: SignedBits<N>,
-    upper_value: SignedBits<N>,
-    factor: Bits<M>,
-) -> SignedBits<N>
+    lower_value: SignedFixed<N, 0>,
+    upper_value: SignedFixed<N, 0>,
+    factor: Fixed<M, M>,
+) -> SignedFixed<N, 0>
 where
     rhdl::bits::W<N>: BitWidth,
     rhdl::bits::W<M>: BitWidth,
 {
-    let lower_value = lower_value.dyn_bits(); // Size N
-    let upper_value = upper_value.dyn_bits(); // Size N
-    let factor = factor.dyn_bits(); // Size M
-    let signed_factor = factor.xsgn(); // Size M + 1
-    let diff = upper_value.xsub(lower_value); // Size N + 1
-    let correction = signed_factor.xmul(diff); // Size N + M + 2
-    let lower_value = lower_value.xshl::<M>(); // Size N + M
-    let y = lower_value.xadd(correction); // Size N + M + 3
-    let y = y.xshr::<M>(); // Size N + 3
-    let y = y.resize::<N>(); // Size N
-    y.as_signed_bits()
+    let lower_value = lower_value.raw.dyn_bits();
+    let upper_value = upper_value.raw.dyn_bits();
+    let factor = factor.raw.dyn_bits();
+    let signed_factor = factor.xsgn();
+    let diff = upper_value.xsub(lower_value);
+    let correction = signed_factor.xmul(diff);
+    let lower_value = lower_value.xshl::<M>();
+    let y = lower_value.xadd(correction);
+    let y = y.xshr::<M>();
+    let y = y.resize::<N>();
+    SignedFixed::<N, 0> {
+        raw: y.as_signed_bits(),
+    }
 }
 
 #[cfg(test)]
@@ -138,49 +140,56 @@ mod tests {
 
     use super::*;
 
+    /// i32-grounded reference implementation. Independent of rhdl-fixed
+    /// so a bug there doesn't mask itself in the expected outputs.
     fn lerp_i32(a: i32, b: i32, f: i32, shift: u8) -> i32 {
         ((a << shift) + (b - a) * f) >> shift
     }
 
     #[test]
-    fn test_lerp_signed_exhaustive() {
-        for a in -8..7 {
-            for b in -8..7 {
-                for factor in 0..32 {
-                    let x = s4(a);
-                    let y = s4(b);
-                    let f = b5(factor);
-                    // Compute the "right answer", but use integer arithmetic, not floating point.
+    fn lerp_unsigned_exhaustive() {
+        for a in 0u128..16 {
+            for b in 0u128..16 {
+                for factor in 0u128..32 {
+                    let x = Fixed::<4, 0> { raw: b4(a) };
+                    let y = Fixed::<4, 0> { raw: b4(b) };
+                    let f = Fixed::<5, 5> { raw: b5(factor) };
                     let expected = lerp_i32(a as i32, b as i32, factor as i32, 5) as u128;
-                    let expected = expected as i128;
-                    assert_eq!(lerp_signed(x, y, f).raw(), expected, "{a} {b} {factor}");
+                    assert_eq!(
+                        lerp_unsigned::<4, 5>(x, y, f).raw.raw(),
+                        expected,
+                        "{a} {b} {factor}"
+                    );
                 }
             }
         }
     }
 
     #[test]
-    fn test_lerp_exhaustive() {
-        for a in 0..16 {
-            for b in 0..16 {
-                for factor in 0..32 {
-                    let x = b4(a);
-                    let y = b4(b);
-                    let f = b5(factor);
-                    // Compute the "right answer", but use integer arithmetic, not floating point.
-                    let expected = lerp_i32(a as i32, b as i32, factor as i32, 5) as u128;
-                    let expected = expected as u128;
-                    assert_eq!(lerp_unsigned(x, y, f).raw(), expected, "{a} {b} {factor}");
+    fn lerp_signed_exhaustive() {
+        for a in -8i128..7 {
+            for b in -8i128..7 {
+                for factor in 0u128..32 {
+                    let x = SignedFixed::<4, 0> { raw: s4(a) };
+                    let y = SignedFixed::<4, 0> { raw: s4(b) };
+                    let f = Fixed::<5, 5> { raw: b5(factor) };
+                    let expected = lerp_i32(a as i32, b as i32, factor as i32, 5) as i128;
+                    assert_eq!(
+                        lerp_signed::<4, 5>(x, y, f).raw.raw(),
+                        expected,
+                        "{a} {b} {factor}"
+                    );
                 }
             }
         }
     }
+
     #[test]
-    fn test_lerp_kernel() -> miette::Result<()> {
+    fn lerp_unsigned_kernel_pipeline() -> miette::Result<()> {
         let vals = (0..16)
-            .map(b4)
-            .flat_map(|x| (0..16).map(move |y| (x, b4(y))))
-            .flat_map(|(x, y)| (0..32).map(move |f| (x, y, b5(f))))
+            .map(|a| Fixed::<4, 0> { raw: b4(a) })
+            .flat_map(|x| (0..16).map(move |b| (x, Fixed::<4, 0> { raw: b4(b) })))
+            .flat_map(|(x, y)| (0..32).map(move |f| (x, y, Fixed::<5, 5> { raw: b5(f) })))
             .collect::<Vec<_>>();
         test_kernel_vm_and_verilog_synchronous::<lerp_unsigned<4, 5>, _, _, _>(
             lerp_unsigned,
@@ -190,11 +199,11 @@ mod tests {
     }
 
     #[test]
-    fn test_signed_lerp_kernel() -> miette::Result<()> {
+    fn lerp_signed_kernel_pipeline() -> miette::Result<()> {
         let vals = (-8..7)
-            .map(s4)
-            .flat_map(|x| (-8..7).map(move |y| (x, s4(y))))
-            .flat_map(|(x, y)| (0..32).map(move |f| (x, y, b5(f))))
+            .map(|a| SignedFixed::<4, 0> { raw: s4(a) })
+            .flat_map(|x| (-8..7).map(move |b| (x, SignedFixed::<4, 0> { raw: s4(b) })))
+            .flat_map(|(x, y)| (0..32).map(move |f| (x, y, Fixed::<5, 5> { raw: b5(f) })))
             .collect::<Vec<_>>();
         test_kernel_vm_and_verilog_synchronous::<lerp_signed<4, 5>, _, _, _>(
             lerp_signed,

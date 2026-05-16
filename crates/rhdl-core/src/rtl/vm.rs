@@ -71,7 +71,22 @@ impl VMState<'_> {
         match operand {
             Operand::Literal(ndx) => Err(self.raise_ice(ICE::CannotWriteToRTLLiteral { ndx }, loc)),
             Operand::Register(r) => {
-                self.reg_stack[r.index()] = Some(value);
+                // Coerce the BitString tag (signed/unsigned) to match
+                // the register's declared kind. Some opcodes (Unary,
+                // Binary) write the natural BitString tag from the
+                // computed TypedBits, which can drift from the static
+                // kind when the op's argument was extracted via a
+                // bit-slice that flattened a compound kind (e.g., an
+                // enum variant's `(Signed<N>)` payload yields a
+                // BitString::Unsigned slice even though downstream
+                // ops expect Signed<N>). Without this coercion, a
+                // signed-typed register can hold an unsigned BitString
+                // and trigger spurious runtime type errors.
+                let coerced = match self.obj.kind(Operand::Register(r)).is_signed() {
+                    true => BitString::Signed(value.bits().to_vec()),
+                    false => BitString::Unsigned(value.bits().to_vec()),
+                };
+                self.reg_stack[r.index()] = Some(coerced);
                 Ok(())
             }
         }

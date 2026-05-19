@@ -1,6 +1,6 @@
   × RHDL Syntax Error
   ╰─▶ RHDL Syntax Error
-     ╭─[crates/rhdl/tests/ast.rs:765:34]
+     ╭─[<embedded:kernel>:765:34]
  764 │         let y = match p {
  765 │             Point { x: Bits::<8>(2), y } => y,
      ·                                  ┬

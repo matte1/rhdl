@@ -1,6 +1,6 @@
   × RHDL Syntax Error
   ╰─▶ RHDL Syntax Error
-     ╭─[crates/rhdl/tests/type_rolling.rs:205:17]
+     ╭─[<embedded:do_all>:205:17]
  204 │         let h = h.val();
  205 │         let j = h.all();
      ·                 ───┬───

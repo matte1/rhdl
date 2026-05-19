@@ -1,6 +1,6 @@
   × RHDL Clock Domain Violation
   ╰─▶ RHDL Clock Domain Violation
-     ╭─[crates/rhdl/tests/clock.rs:449:17]
+     ╭─[<embedded:foo>:449:17]
  448 │         let b = b.val();
  449 │         let c = if b { Foo::A } else { Foo::B(a) };
      ·                 ─────────────────┬────────────────┬┬┬

@@ -1,6 +1,6 @@
   × RHDL Type Check Error
   ╰─▶ RHDL Type Check Error
-     ╭─[crates/rhdl/tests/dyn_bits.rs:187:17]
+     ╭─[<embedded:do_stuff>:187:17]
  186 │         let c = a1.xadd(a2);
  187 │         let d = c.xadd(b4(1));
      ·                 ──────┬──────┬┬

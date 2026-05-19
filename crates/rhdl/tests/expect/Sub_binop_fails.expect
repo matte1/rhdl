@@ -1,6 +1,6 @@
   × RHDL Syntax Error
   ╰─▶ RHDL Syntax Error
-    ╭─[crates/rhdl/tests/type_rolling.rs:32:25]
+    ╭─[<embedded:do_stuff_sub>:32:25]
  31 │                 let h = h.val();
  32 │                 let j = h $op h;
     ·                         ───┬───

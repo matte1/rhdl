@@ -1,6 +1,6 @@
   × RHDL Clock Domain Violation
   ╰─▶ RHDL Clock Domain Violation
-     ╭─[crates/rhdl/tests/clock.rs:198:9]
+     ╭─[<embedded:add>:198:9]
  197 │         };
  198 │         signal(z)
      ·         ────┬────┬┬

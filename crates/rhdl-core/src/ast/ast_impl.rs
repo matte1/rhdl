@@ -553,11 +553,13 @@ pub struct KernelFn {
 
 impl KernelFn {
     pub fn sources(&self) -> Result<SpannedSource, RHDLError> {
-        let Some(filename) = self.text else {
-            return Err(anyhow!("Kernel function has no source text").into());
+        // `self.text` holds the source file *contents* embedded into the
+        // binary at macro-expansion time (see span_file_content in
+        // rhdl-macro-core/src/kernel.rs). No runtime filesystem access —
+        // the artifact is portable across sandboxes.
+        let Some(source) = self.text else {
+            return Err(anyhow!("Kernel function has no embedded source text").into());
         };
-        let source = std::fs::read_to_string(filename)
-            .map_err(|err| anyhow!("Failed to read source file {}: {}", filename, err))?;
         let span_map = self
             .meta_db
             .iter()
@@ -568,9 +570,9 @@ impl KernelFn {
                 let end_col = meta.span.end_col;
                 let end_line = meta.span.end_line;
                 let start_source_offset =
-                    miette::SourceOffset::from_location(&source, start_line, start_col + 1);
+                    miette::SourceOffset::from_location(source, start_line, start_col + 1);
                 let end_source_offset =
-                    miette::SourceOffset::from_location(&source, end_line, end_col + 1);
+                    miette::SourceOffset::from_location(source, end_line, end_col + 1);
                 (
                     node_id,
                     start_source_offset.offset()..end_source_offset.offset(),
@@ -578,11 +580,11 @@ impl KernelFn {
             })
             .collect();
         Ok(SpannedSource {
-            source,
+            source: source.to_string(),
             name: self.name.into(),
             span_map,
             fallback: self.id,
-            filename: filename.into(),
+            filename: format!("<embedded:{}>", self.name),
             function_id: self.fn_id,
         })
     }

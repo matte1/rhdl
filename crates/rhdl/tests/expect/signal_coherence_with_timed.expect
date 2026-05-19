@@ -1,6 +1,6 @@
   × RHDL Clock Domain Violation
   ╰─▶ RHDL Clock Domain Violation
-     ╭─[crates/rhdl/tests/clock.rs:276:9]
+     ╭─[<embedded:add>:276:9]
  275 │         let val = x.y.b.val() + 1;
  276 │         signal(val)
      ·         ─────┬─────┬┬

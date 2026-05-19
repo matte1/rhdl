@@ -1,6 +1,6 @@
   × RHDL Clock Domain Violation
   ╰─▶ RHDL Clock Domain Violation
-     ╭─[crates/rhdl/tests/clock.rs:214:17]
+     ╭─[<embedded:add>:214:17]
  213 │         let x = x.val();
  214 │         let z = x[y.val()];
      ·                 ─────┬────┬┬

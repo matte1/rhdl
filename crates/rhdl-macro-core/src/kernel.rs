@@ -593,12 +593,14 @@ fn trace_wrap_function(function: &syn::ItemFn) -> Result<TS> {
     })
 }
 
-// Get the file path from a Span, if possible
-// If the filename is not UTF8, then return None
-fn span_file_path(span: Span) -> Option<String> {
+// Read the entire source file for a span at macro-expansion time and
+// return its contents. Returns None if the path is unknown or the file
+// can't be read. We embed the *contents* (not the path) into the
+// generated code so that downstream consumers don't need filesystem
+// access at runtime — critical for sandboxed / remote-cached builds.
+fn span_file_content(span: Span) -> Option<String> {
     span.local_file()
-        .and_then(|x| std::fs::canonicalize(x).ok())
-        .and_then(|x| x.to_str().map(|s| s.to_string()))
+        .and_then(|path| std::fs::read_to_string(path).ok())
 }
 
 impl Context {
@@ -608,7 +610,7 @@ impl Context {
         function: syn::ItemFn,
     ) -> Result<TS> {
         let fn_span = function.span();
-        let text = span_file_path(fn_span)
+        let text = span_file_content(fn_span)
             .map(|x| quote! {Some(#x)})
             .unwrap_or(quote! {None});
         let root_id = self.id(&function, &function.attrs);

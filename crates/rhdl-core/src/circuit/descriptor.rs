@@ -55,11 +55,17 @@ pub struct Descriptor<T> {
 
 impl<T> Descriptor<T> {
     /// Get a reference to the HDL (Verilog) description of the circuit, if available.
+    ///
+    /// The defensive `ModuleList::checked()` call this used to make has
+    /// been removed: it shelled out to a `$PATH`-discovered `iverilog`,
+    /// which is non-hermetic in any sandboxed/CI environment. Callers
+    /// who want a syntax check can invoke
+    /// `hdl.modules.checked_with(iverilog, ivl_base)` explicitly with a
+    /// binary path they control (e.g. via the `runfiles` crate).
     pub fn hdl(&self) -> Result<&HDLDescriptor, RHDLError> {
         let hdl = self.hdl.as_ref().ok_or(RHDLError::HDLNotAvailable {
             name: self.name.to_string(),
         })?;
-        hdl.modules.checked()?;
         Ok(hdl)
     }
     /// Get a reference to the netlist representation of the circuit, if available.

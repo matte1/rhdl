@@ -369,18 +369,26 @@ pub struct ModuleList {
 }
 
 impl ModuleList {
-    /// Check the module list for syntactic correctness using Icarus Verilog.
-    pub fn checked(&self) -> anyhow::Result<()> {
+    /// Check the module list for syntactic correctness using an explicit
+    /// `iverilog` binary path. `ivl_base` is the IVL_BASE directory
+    /// iverilog needs to find its `*.tgt` modules; pass an empty path
+    /// to rely on iverilog's own install-time discovery.
+    pub fn checked_with(
+        &self,
+        iverilog: &std::path::Path,
+        ivl_base: &std::path::Path,
+    ) -> anyhow::Result<()> {
         let d = tempfile::tempdir()?;
-        // Write the test bench to a file
         let d_path = d.path();
         std::fs::write(d_path.join("top.v"), self.to_string())?;
-        // Compile the test bench
-        let mut cmd = std::process::Command::new("iverilog");
+        let mut cmd = std::process::Command::new(iverilog);
+        if !ivl_base.as_os_str().is_empty() {
+            cmd.env("IVL_BASE", ivl_base);
+        }
         cmd.arg("-t").arg("null").arg(d_path.join("top.v"));
-        let status = cmd
-            .status()
-            .expect("Icarus Verilog should be installed and in your PATH.");
+        let status = cmd.status().map_err(|e| {
+            anyhow::anyhow!("Failed to invoke iverilog at {}: {e}", iverilog.display())
+        })?;
         if !status.success() {
             return Err(anyhow::anyhow!(
                 "Failed to compile testbench with {}",
@@ -388,6 +396,12 @@ impl ModuleList {
             ));
         }
         Ok(())
+    }
+
+    /// Back-compat wrapper assuming `iverilog` is on `$PATH`. Prefer
+    /// [`Self::checked_with`] in any sandboxed / hermetic context.
+    pub fn checked(&self) -> anyhow::Result<()> {
+        self.checked_with(std::path::Path::new("iverilog"), std::path::Path::new(""))
     }
 }
 
